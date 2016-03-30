@@ -1,0 +1,57 @@
+---
+title: "Assessment of Phrase Rescore Boost A/B Test"
+author: Mikhail Popov (Analysis), Erik Bernhardson (Engineering), David Causse (Engineering),
+  Dan Garry (Product Management)
+date: "March 28, 2016"
+output:
+  html_document: default
+  pdf_document:
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 7.5
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+\renewcommand{\abstractname}{Executive Summary}
+\begin{abstract}
+...
+\end{abstract}
+
+## Backgrounds
+
+## Analysis of impact on user behavior metrics
+
+### Number of searches per session
+
+![](figures/searches.png)
+
+### Clickthrough rate
+
+![](figures/daily_ctr.png)
+
+### Position of first clicked result
+
+![](figures/first_position.png)
+
+### Position of first and second clicked results
+
+![](figures/clicked_positions.png)
+
+### Time to first clickthrough
+
+![](figures/first_clickthrough.png)
+
+### Number of results visited
+
+![](figures/pages_visited.png)
+
+### Search session duration
+
+![](figures/session_duration.png)
+
+### Time spent on visited pages
+
+## Discussion
