@@ -6,6 +6,7 @@ library(purrr)
 library(GGally) # install.packages("GGally")
 
 events <- dplyr::tbl_df(as.data.frame(readr::read_rds("data/phrase_boost_test_EL.rds")))
+# events <- dplyr::tbl_df(as.data.frame(readr::read_rds("data/phrase_boost_test_EL_v2.rds")))
 events %<>% keep_where(session_id != "")
 events$action_id <- NULL
 events %<>% keep_where(date > "2016-03-14")
