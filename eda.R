@@ -108,13 +108,15 @@ time_to_clickthrough <- events %>%
 p1 <- time_to_clickthrough %>%
   ggplot(aes(y = `Time to first clickthrough`, x = Group, fill = Group)) +
   geom_violin(trim = FALSE, adjust = 2, draw_quantiles = c(0.25, 0.5, 0.75)) +
-  labs(y = "Time to first clickthrough (seconds)", title = "Time to first clickthrough") +
+  scale_y_continuous(labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) }) +
+  labs(y = "Time to first clickthrough", title = "Time to first clickthrough") +
   ggthemes::theme_tufte(base_family = "Gill Sans") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
 p2 <- time_to_clickthrough %>%
-  ggplot(aes(y = log(`Time to first clickthrough`), x = Group, fill = Group)) +
+  ggplot(aes(y = `Time to first clickthrough`, x = Group, fill = Group)) +
   geom_violin(trim = FALSE, adjust = 2, draw_quantiles = c(0.25, 0.5, 0.75)) +
-  labs(y = "Seconds to first clickthrough (log-transformed)", title = "Log-transformed time to clickthrough") +
+  scale_y_log10(labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) }) +
+  labs(y = "Time to first clickthrough (log10-transformed)", title = "Log10-transformed time to clickthrough") +
   ggthemes::theme_tufte(base_family = "Gill Sans") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
 (p <- plot_grid(p1, p2, ncol = 2))
@@ -140,7 +142,7 @@ p <- searches_by_group %>%
   scale_y_continuous("Proportion of sessions within group", labels = scales::percent_format()) +
   geom_text(aes(label = sprintf("%.1f", 100*prop), color = Group),
             position = position_dodge(width = 1), vjust = -1, fontface = "bold") +
-  labs(title = "Number of search engine result pages (SERPs) opened per session",
+  labs(title = "Number of search engine results pages (SERPs) opened per session",
        x = "Number of SERPs opened (searches performed)") +
   ggthemes::theme_tufte(base_family = "Gill Sans") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
@@ -166,7 +168,7 @@ p <- first_click %>%
   scale_y_continuous("Proportion of sessions within group", labels = scales::percent_format()) +
   geom_text(aes(label = sprintf("%.1f", 100*prop), color = Group),
             position = position_dodge(width = 1), vjust = -1, fontface = "bold") +
-  labs(title = "First clicked result's position on search engine result page",
+  labs(title = "First clicked result's position on search engine results page",
        x = "Position of the first clicked result on SERP") +
   ggthemes::theme_tufte(base_family = "Gill Sans") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
@@ -196,7 +198,7 @@ p <- clicked_position %>%
   scale_y_continuous("Proportion of sessions within group", labels = scales::percent_format()) +
   geom_text(aes(label = sprintf("%.1f", 100*prop), color = Group),
             position = position_dodge(width = 1), vjust = -1, fontface = "bold") +
-  labs(title = "Position of 1st and 2nd clicked results on search engine result page",
+  labs(title = "Position of 1st and 2nd clicked results on search engine results page",
        x = "Position of the clicked result on SERP") +
   ggthemes::theme_tufte(base_family = "Gill Sans") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
@@ -213,7 +215,9 @@ p <- session_lengths %>%
   keep_where(session_length > 0) %>%
   ggplot(aes(x = session_length, fill = group)) +
   geom_density(alpha = 0.5, adjust = 2) +
-  scale_x_log10("Session Length (on log-10 scale)") +
+  scale_x_log10("Session Length (on log-10 scale)",
+                breaks = c(1, 10, 30, 60, 60*10, 60*60, 60*60*24),
+                labels = function(secs) { return(tolower(lubridate::seconds_to_period(round(secs)))) }) +
   labs(title = "Distribution of log10-scaled session lengths", y = "Density") +
   ggthemes::theme_tufte(base_family = "Gill Sans") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
@@ -228,12 +232,12 @@ next_checkin <- function(x) {
   }))
 }
 
-last_one_of <- function(x) {
-  return(rev(x)[1])
-}
-
-one_of <- function(x) {
-  return(x[sample.int(length(x), 1)])
+one_of <- function(x, which) {
+  y <- switch(which,
+              "random" = x[sample.int(length(x), 1)],
+              "first" = x[1],
+              "last" = rev(x)[1])
+  return(y)
 }
 
 ## Time spent on pages
@@ -245,19 +249,87 @@ page_visits <- events %>%
   summarize(group = head(test_group, 1),
             `page visits` = length(checkin),
             `median page visit check-in` = median(checkin),
-            `random page visit check-in` = one_of(checkin),
-            `last page visit check-in` = last_one_of(checkin)) %>%
-  mutate(`random page visit next check-in` = next_checkin(`random page visit check-in`),
+            `first page visit check-in` = one_of(checkin, "first"),
+            `random page visit check-in` = one_of(checkin, "random"),
+            `last page visit check-in` = one_of(checkin, "last")) %>%
+  mutate(`first page visit next check-in` = next_checkin(`first page visit check-in`),
+         `first page visit status` = ifelse(`first page visit check-in` == 420, 0, 3),
+         `random page visit next check-in` = next_checkin(`random page visit check-in`),
          `random page visit status` = ifelse(`random page visit check-in` == 420, 0, 3),
          `last page visit next check-in` = next_checkin(`last page visit check-in`),
          `last page visit status` = ifelse(`last page visit check-in` == 420, 0, 3))
-
-surv <- survival::Surv(time = page_visits$`last page visit check-in`,
-                       time2 = page_visits$`last page visit next check-in`,
-                       event = page_visits$`last page visit status`,
-                       type = "interval")
 Group <- page_visits$group
-fit <- survival::survfit(surv ~ Group)
-GGally::ggsurv(fit) +
-  scale_y_continuous(labels = scales::percent_format()) +
-  labs(x = "Time (s)", title = "Time spent on last visited page in each search session")
+
+summarize_survival_differences <- function(fit) {
+  foo <- function(control_survival, test_survival) {
+    survival_diff <- abs(control_survival - test_survival)
+    z1 <- "barely"
+    z1[which(survival_diff > 0.05)] <- "slightly"
+    z1[which(survival_diff > 0.1)] <- "moderately"
+    z1[which(survival_diff > 0.2)] <- "clearly"
+    z2 <- "lower % of test group remained on page"
+    z2[test_survival > control_survival] <- "higher % of test group remained on page"
+    z <- paste(z1, z2)
+    return(z)
+  }
+  x <- summary(fit)
+  y <- data.frame(time = x$time, survival = x$surv, group = sub("Group=", "", as.character(x$strata), fixed = TRUE), stringsAsFactors = FALSE)
+  z <- y %>% tidyr::spread(group, survival) %>%
+    mutate(difference = foo(baseline, phraseBoostEq1),
+           baseline = sprintf("%.2f%%", 100 * baseline),
+           phraseBoostEq1 = sprintf("%.2f%%", 100 * phraseBoostEq1))
+  return(z)
+}
+
+surv_1 <- (function() {
+  surv <- survival::Surv(time = page_visits$`first page visit check-in`,
+                         time2 = page_visits$`first page visit next check-in`,
+                         event = page_visits$`first page visit status`,
+                         type = "interval")
+  fit <- survival::survfit(surv ~ Group)
+  gg <- GGally::ggsurv(fit) + scale_y_continuous(labels = scales::percent_format()) +
+    labs(x = "Time", title = "Time spent on first visited page in each search session",
+         y = "Survival (% of users remaining after some time has passed)") +
+    ggthemes::theme_tufte(base_family = "Gill Sans") +
+    theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1)) +
+    scale_x_continuous(breaks = seq(0, 420, 30), labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) })
+  df <- summarize_survival_differences(fit)
+  return(list(grob = gg, table = df))
+})()
+
+surv_2 <- (function() {
+  surv <- survival::Surv(time = page_visits$`random page visit check-in`,
+                         time2 = page_visits$`random page visit next check-in`,
+                         event = page_visits$`random page visit status`,
+                         type = "interval")
+  fit <- survival::survfit(surv ~ Group)
+  gg <- GGally::ggsurv(fit) + scale_y_continuous(labels = scales::percent_format()) +
+    labs(x = "Time", title = "Time spent on one of the (randomly chosen) visited pages in each search session",
+         y = "Survival (% of users remaining after some time has passed)") +
+    ggthemes::theme_tufte(base_family = "Gill Sans") +
+    theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1)) +
+    scale_x_continuous(breaks = seq(0, 420, 30), labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) })
+  df <- summarize_survival_differences(fit)
+  return(list(grob = gg, table = df))
+})()
+
+surv_3 <- (function() {
+  surv <- survival::Surv(time = page_visits$`last page visit check-in`,
+                         time2 = page_visits$`last page visit next check-in`,
+                         event = page_visits$`last page visit status`,
+                         type = "interval")
+  fit <- survival::survfit(surv ~ Group)
+  gg <- GGally::ggsurv(fit) + scale_y_continuous(labels = scales::percent_format()) +
+    labs(x = "Time", title = "Time spent on last visited page in each search session",
+         y = "Survival (% of users remaining after some time has passed)") +
+    ggthemes::theme_tufte(base_family = "Gill Sans") +
+    theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1)) +
+    scale_x_continuous(breaks = seq(0, 420, 30), labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) })
+  df <- summarize_survival_differences(fit)
+  return(list(grob = gg, table = df))
+})()
+
+surv_2$table %>% knitr::kable(align = c("r", "r", "r", "l"))
+ggsave("surv_first_visited_page.png", surv_1$grob, path = "figures", width = 10, height = 6)
+ggsave("surv_random_visited_page.png", surv_2$grob, path = "figures", width = 10, height = 6)
+ggsave("surv_last_visited_page.png", surv_3$grob, path = "figures", width = 10, height = 6)
