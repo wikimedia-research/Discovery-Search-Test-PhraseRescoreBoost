@@ -26,13 +26,25 @@ events <- do.call(rbind, lapply(seq(start_date, end_date, "day"), function(date)
                             event_hitsReturned AS results_returned",
                            date = date,
                            table = "TestSearchSatisfaction2_15357244",
-                           conditionals = "event_autocompleteType IS NULL AND event_action IN('searchResultPage', 'visitPage', 'checkin')")
+                           conditionals = "event_autocompleteType IS NULL AND event_source = 'fulltext'
+                             AND ((
+                                   event_action = 'searchResultPage' AND
+                                   (CONVERT(event_query USING latin5) REGEXP '[[:>:]] [[:<:]]') > 0
+                                  )
+                                  OR
+                                   event_action IN('visitPage', 'checkin')
+                                 )")
   return(data)
 }))
 cat("...done! Doing some date/datetime post-processing...")
 library(magrittr)
 events$date %<>% lubridate::ymd()
 events$ts %<>% lubridate::ymd_hms()
+cat("done.\n")
+
+cat("Filtering out the visitPage and checkin events for invalid searchResultPage...")
+valid_sessions <- unique(events$session_id[events$action == "searchResultPage"])
+events <- events[events$session_id %in% valid_sessions, ]
 cat("done.\n")
 
 cat("Processing user agents to do spider filtering...")
@@ -66,9 +78,9 @@ cat("All done!")
 # with(users, prop.table(table(date, test_group))) # baseline: 0.520127, phraseBoostEq1: 0.479873
 
 cat("Writing data (", nrow(events), " events) to disk...", sep = "")
-readr::write_rds(events, "~/phrase_boost_test_EL.rds", "gz")
+readr::write_rds(events, "~/phrase_boost_test_EL_v2.rds", "gz")
 cat("done.\n")
 
 ## Locally:
 # $> mkdir ~/Documents/Projects/Discovery\ Tests/Phrase\ Rescore\ Boost/data
-# $> scp stat2:/home/bearloga/phrase_boost_test_EL.rds ~/Documents/Projects/Discovery\ Tests/Phrase\ Rescore\ Boost/data/
+# $> scp stat2:/home/bearloga/phrase_boost_test_EL_v2.rds ~/Documents/Projects/Discovery\ Tests/Phrase\ Rescore\ Boost/data/

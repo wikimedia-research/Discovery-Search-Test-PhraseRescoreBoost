@@ -3,17 +3,18 @@ import::from(dplyr, group_by, summarize, ungroup, mutate, rename, keep_where = f
 library(ggplot2)
 library(cowplot)
 
-format_confint <- function(ci, digits = 2, units = "") {
+format_confint <- function(est, ci, digits = 2, units = "") {
   if (units == "%") {
     units <- paste0(units, units)
   }
-  type <- switch(typeof(ci[1]), "character" = "s", "double" = "f", "integer" = "i")
-  a <- sprintf(paste0("%", ifelse(type == "character", "s", paste0(".", digits, type)), units), ci[1])
-  b <- sprintf(paste0("%", ifelse(type == "character", "s", paste0(".", digits, type)), units), ci[2])
-  return(paste0("(", a, ", ", b, ")"))
+  type <- switch(typeof(est), "character" = "s", "double" = "f", "integer" = "i")
+  x <- sprintf(paste0("%", ifelse(type == "character", "s", paste0(".", digits, type)), units), est)
+  y <- sprintf(paste0("%", ifelse(type == "character", "s", paste0(".", digits, type)), units), ci[1])
+  z <- sprintf(paste0("%", ifelse(type == "character", "s", paste0(".", digits, type)), units), ci[2])
+  return(paste0(x, " (", y, ", ", z, ")"))
 }
 
-events <- dplyr::tbl_df(as.data.frame(readr::read_rds("data/phrase_boost_test_EL.rds")))
+events <- dplyr::tbl_df(as.data.frame(readr::read_rds("data/phrase_boost_test_EL_v2.rds")))
 events %<>% keep_where(session_id != "")
 events$action_id <- NULL
 events %<>% keep_where(date > "2016-03-14")
@@ -38,36 +39,53 @@ clickthrough_by_group <- events %>%
   tidyr::spread(clickthrough, n)
 clickthrough_by_group <- set_rownames(as.matrix(clickthrough_by_group[1:2, 2:3]), clickthrough_by_group$group)[2:1, 2:1]
 
-library(bandit) # install.packages('bandit')
-best_binomial_bandit(clickthrough_by_group[, 1], margin.table(clickthrough_by_group, 1))
-significance_analysis(clickthrough_by_group[, 1], margin.table(clickthrough_by_group, 1))
-# summarize_metrics(margin.table(clickthrough_by_group, 1)[1], successes = clickthrough_by_group[1, 1])
-
-library(testr) # devtools::install_github('bearloga/testr')
-post <- beta_binomial_ab_test(clickthrough_by_group[, 1], margin.table(clickthrough_by_group, 1),
-                              conf.level = 0.05, groups = rownames(clickthrough_by_group))
-gg <- plot(post, limits = c(0.25, 0.35), title = "Phrase Rescore Boost 1 A/B Test: Clickthrough Rates")
-gg + ggthemes::theme_tufte(base_family = "Gill Sans") + theme(panel.grid = element_line(color = "black"))
-
-library(BCDA) # devtools::install_local('~/Documents/Projects/R Packages/BCDA')
+library(BCDA) # devtools::install_github("bearloga/BCDA")
 bcda_summary <- function(data, knitr = TRUE) {
-  temp <- list(`Test of Independence with Bayes Factor` = BCDA::test_indepen(data)$Interpretation,
-               `Test Group - Control Group` = format_confint(100*BCDA::ci_prop_diff_tail(data), 3, "%"),
-               `Relative Risk ("times more/less likely")` = format_confint(BCDA::ci_relative_risk(data), 3)) %>%
-    do.call(rbind, .) %>% as.data.frame %>% set_names("95% Bayesian C.I.")
+  tbl_summary <- data %>%
+  {
+    summary_tbl <- summary(beta_binom(.), interval_type = "HPD")
+    margins <- as.numeric(margin.table(., 1))
+    list(n_B = polloi::compress(margins[1], 1), n_A = polloi::compress(margins[2], 1),
+         pi_B = format_confint(100 * as.numeric(summary_tbl[1, 1]),
+                               100 * as.numeric(summary_tbl[1, 3:4]), digits = 1),
+         pi_A = format_confint(100 * as.numeric(summary_tbl[2, 1]),
+                               100 * as.numeric(summary_tbl[2, 3:4]), digits = 1),
+         prop_diff = format_confint(100 * as.numeric(summary_tbl[3, 1]),
+                                    100 * as.numeric(summary_tbl[3, 3:4]), digits = 1),
+         rel_risk = format_confint(as.numeric(summary_tbl[4, 1]),
+                                   as.numeric(summary_tbl[4, 3:4])),
+         odds_ratio = format_confint(as.numeric(summary_tbl[5, 1]),
+                                     as.numeric(summary_tbl[5, 3:4])))
+  } %>% do.call(rbind, .) %>% t
   if (knitr) {
-    return(knitr::kable(temp, align = "c", caption = "Comparison of Test Group vs Control Group (Baseline)"))
-  } else {
-    return(temp)
+    return(knitr::kable(tbl_summary, align = "c", format = "latex",
+                        caption = "Comparison of Test Group vs Control Group (Baseline)"))
   }
+  return(tbl_summary)
 }
 
+## Clickthrough:
+set.seed(0)
 bcda_summary(clickthrough_by_group)
+bcda_summary(clickthrough_by_group[2:1, ]) # to see how much better A is than B w/r/t CTR%
 
+## Time to first clickthrough:
+time_to_clickthrough <- events %>%
+  keep_where(session_id %in% nonzero_session_ids & session_id %in% clickthroughed_session_ids) %>%
+  group_by(session_id) %>%
+  arrange(ts) %>%
+  summarize(Group = head(test_group, 1),
+            Landing = head(ts, 1),
+            `First clickthrough` = (function(x, y) {
+              return(head(y[which(x == "visitPage")], 1))
+            })(action, ts)) %>%
+  mutate(`Time to first clickthrough` = as.integer(difftime(`First clickthrough`, `Landing`, units = "secs"))) %>%
+  select(-c(`session_id`, `Landing`, `First clickthrough`)) %>%
+  keep_where(`Time to first clickthrough` <= 120 & `Time to first clickthrough` > 0)
 ks.test(time_to_clickthrough$`Time to first clickthrough`[time_to_clickthrough$Group == "phraseBoostEq1"],
         time_to_clickthrough$`Time to first clickthrough`[time_to_clickthrough$Group == "baseline"])
-ks.test(log10(time_to_clickthrough$`Time to first clickthrough`[time_to_clickthrough$Group == "phraseBoostEq1"]),
-        log10(time_to_clickthrough$`Time to first clickthrough`[time_to_clickthrough$Group == "baseline"]))
+# ks.test(log10(time_to_clickthrough$`Time to first clickthrough`[time_to_clickthrough$Group == "phraseBoostEq1"]),
+#         log10(time_to_clickthrough$`Time to first clickthrough`[time_to_clickthrough$Group == "baseline"]))
 
 ## Comparing discrete distributions...
 
@@ -86,6 +104,8 @@ bootstrap_kl <- function(reference_distribution, test_distribution, nsims = 1000
   }, 0.0)
   return(list(observed = observed_kl, pval = sum(bootstrapped_kl >= observed_kl)/nsims))
 }
+
+## Position of first clickthrough
 
 first_click <- events %>%
   keep_where(!is.na(result_position)) %>%
@@ -130,7 +150,9 @@ bootstrap_test <- function(observed_statistic, bootstapped_statistics, conf_leve
 
 observed_kl
 bootstrap_test(observed_kl, bootstrapped_kl)
-format_confint(bootstrap_test(observed_kl, bootstrapped_kl)$ci, 3)
+format_confint(observed_kl, bootstrap_test(observed_kl, bootstrapped_kl)$ci, 3)
+
+## Number of searches performed in a session:
 
 searches_by_group <- events %>%
   group_by(session_id) %>%
@@ -167,7 +189,9 @@ plot(density(bootstrapped_kl, adjust = 3))
 abline(v = observed_kl, lty = "dashed")
 observed_kl
 bootstrap_test(observed_kl, bootstrapped_kl)
-format_confint(bootstrap_test(observed_kl, bootstrapped_kl)$ci, 3)
+format_confint(observed_kl, bootstrap_test(observed_kl, bootstrapped_kl)$ci, 3)
+
+## Number of visited pages:
 
 ctr_counts_by_group <- events %>%
   keep_where(session_id %in% nonzero_session_ids) %>%
@@ -204,7 +228,9 @@ plot(density(bootstrapped_kl, adjust = 3))
 abline(v = observed_kl, lty = "dashed")
 observed_kl
 bootstrap_test(observed_kl, bootstrapped_kl)
-format_confint(bootstrap_test(observed_kl, bootstrapped_kl)$ci, 3)
+format_confint(observed_kl, bootstrap_test(observed_kl, bootstrapped_kl)$ci, 3)
+
+## Search session duration:
 
 session_lengths <- events %>%
   group_by(date, session_id) %>%
@@ -235,4 +261,4 @@ plot(density(bootstrapped_D, adjust = 3))
 abline(v = observed_D, lty = "dashed")
 observed_D
 bootstrap_test(observed_D, bootstrapped_D)
-format_confint(bootstrap_test(observed_D, bootstrapped_D)$ci, 3)
+format_confint(observed_D, bootstrap_test(observed_D, bootstrapped_D)$ci, 3)

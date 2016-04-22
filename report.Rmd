@@ -1,14 +1,22 @@
 ---
-title: "Phrase Rescore Boost A/B Test"
-author: Mikhail Popov (Analysis), Erik Bernhardson (Engineering), David Causse (Engineering),
-  Dan Garry (Product Management)
-date: "March 31, 2016"
+title: "Wikipedia Search Phrase Rescore Boosting A/B Test"
+subtitle: "Second Edition"
+author:
+- Mikhail Popov (Analysis & Report)
+- Erik Bernhardson (Engineering)
+- David Causse (Engineering)
+- Dan Garry (Product Management)
+- Trey Jones (Review)
+date: "April 21, 2016"
 output:
   pdf_document:
     fig_caption: yes
     fig_height: 4
     fig_width: 7.5
-  html_document: default
+    includes:
+      in_header: header.tex
+    latex_engine: xelatex
+fontsize: 11pt
 ---
 
 ```{r setup, include = FALSE}
@@ -19,11 +27,11 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 \begin{abstract}
 From 15 March 2016 to 22 March 2016 the Discovery/Search team ran an A/B test to assess how changing the phrase rescore boost from its current value of 10 to a proposed value of 1 would affect our users' behavior. Phrase rescore reorders the returned results, ranking results that have the same phrase higher. It appeared to be overboosted so we hypothesized that it may yield sub-optimal results.
 
-It is important to note right up front that the differences in metrics/distributions between the test group (users with phrase rescore boost of 1) and the control (users with phrase rescore boost of 10) were close to 0 and were not statistically significant.
+It is important to note right up front that the differences in metrics/distributions between the test group (users with phrase rescore boost of 1) and the control (users with phrase rescore boost of 10) were close to 0 and were not statistically significant, even after making sure we only analyzed the eligible (affected) sessions -- queries with two or more words.
 
 \begin{itemize}
   \item The test group has a slightly higher proportion of sessions with only 1 or 2 search results pages than the control group, which has a slightly higher proportion of multi-search sessions.
-  \item While it looks like the control group had a much higher clickthrough rate than the test group due to the scale of the chart, the actual difference was really close to 0 (test group had 0.28\%-1.5\% higher abandonment rate), and a Bayesian estimation of the relative risk (0.953-1.086 times more likely) makes it unclear whether one group was more or less likely to clickthrough than the other group.
+  \item The control group had a 1.3\% higher probability of clickthrough and was 1.05 (1.03--1.08) times more likely to click on a result than the test group.
   \item Most of the users clicked on the first result they're presented with. We had some expectation that this might change, but it is unsurprising that the two groups behaved almost exactly the same. Most of the users clicked on a search result within the first 25 seconds, with 10s being the most common first clickthrough time. This did not vary by group.
   \item Number of results visited did not change by much between the two groups, although it looks like a slightly larger proportion of the test group visited fewer (1-2) results than the control group (larger \% of sessions with 3+ clickthroughs). It also looks like more test group users have shorter sessions than the control group, with a slightly greater number of test users having sessions lasting 10-30s and a slightly greater number of control users having sessions lasting more than 10 minutes. Users in the test group remained just a little bit longer on pages they visited than the control group, but barely so.
 \end{itemize}
@@ -43,7 +51,7 @@ The phrase rescore appeared to be overboosted to us at its current value of 10, 
 
 So we decided to pursue this as an A/B test ([T129593](https://phabricator.wikimedia.org/T129593)) to see whether the change would have a positive impact on search results with regards to various user behavior metrics. Specifically, we decided to judge the impact of the configuration change by assessing: number of searches per session, clickthrough rate, position of first clicked result, time to first clickthrough, number of results visited (pages opened), session duration, and time spent on visited page(s).
 
-We ran the test from 15 March 2016 to 22 March 2016 on 0.5% of the users searching various wiki projects. This test did not affect autocomplete (prefix/completion suggester) and did not have any effect on zero results rate, hence the use of event logging to collect user behavior metrics. After removing known spiders, the dataset we analyzed in this report contained 134,952 independent full-text search sessions.
+We ran the test from 15 March 2016 to 22 March 2016 on 0.5% of the users searching various wiki projects. This test did not affect autocomplete (prefix/completion suggester) and did not have any effect on zero results rate, hence the use of event logging to collect user behavior metrics. After removing known spiders, the dataset we analyzed in this report contained 90,262 independent full-text search sessions with 2 or more words in the search query. (The configuration change would not have impacted single-word queries, see [T132077](https://phabricator.wikimedia.org/T132077).)
 
 ## Statistical analysis of impact on user behavior metrics
 
@@ -51,23 +59,34 @@ We ran the test from 15 March 2016 to 22 March 2016 on 0.5% of the users searchi
 
 ![Number of searches made per session. The test group has a slightly higher proportion of sessions with only 1 or 2 search results pages than the control group, which has a slightly higher proportion of multi-search sessions.](figures/searches.png)
 
-To compare the these two discrete distributions, we used [bootstrapping](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)) with the [Kullback-Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence) metric, which allowed us to assess the probability of obtaining a K-L statistic equal to or greater than the K-L statistic observed. The observed K-L value was 0.022 (close to 0, signifying similarity) with a 95% Confidence Interval of (0.013, 0.021). The *p*-value was 0.993 so we cannot reject the hypothesis that the two distirbutions are the same.
+To compare the these two discrete distributions, we used [bootstrapping](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)) with the [Kullback-Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence) metric, which allowed us to assess the probability of obtaining a K-L statistic equal to or greater than the K-L statistic observed. The observed K-L value was 0.0247 (close to 0, signifying similarity) with a 95% Confidence Interval of (0.015, 0.025). The *p*-value was 0.966 so we cannot reject the hypothesis that the two distirbutions are the same.
 
 ### Clickthrough rate (CTR)
 
-![Daily clickthrough rate (CTR) for users who received some results. While it looks like the control group has a much higher CTR than the test group due to the scale, the actual difference is really close to 0 (test group had 0.28%-1.5% higher abandonment rate), and a Bayesian estimation of the relative risk (0.953-1.086 times more likely) makes it unclear whether one group is more or less likely to clickthrough than the other group.](figures/daily_ctr.png)
+![Daily clickthrough rate (CTR) for users who received some results. The control group had a 1.3% higher probability of clickthrough and was 1.05 (1.03-1.08) times more likely to click on a result than the test group.](figures/daily_ctr.png)
 
-|                                  | 95% Bayesian C.I.           |
-|:---------------------------------|:---------------------------:|
-|Bayes Factor Test of independence | Some evidence against hypothesis of independence. |
-|Test Group - Control Group        | (-1.503%, -0.284%)          |
-|Relative Risk                     | (0.953, 1.086)              |
+\begin{table}[h]
+\sffamily
+\caption{Comparison of Test Group vs Control Group (Baseline).}
+\centering
+\renewcommand{\arraystretch}{1.5}% for the vertical padding
+\begin{tabular}[t]{c|c|c|c}
+\hline
+$n_\text{B}$ & $n_\text{A}$ & $\pi_\text{B}$ \textbf{(\%)} & $\pi_\text{A}$ \textbf{(\%)}\\
+\hline
+39.5K & 44K & 24.3 (23.8, 24.7) & 25.5 (25.1, 25.9)\\
+\hline\hline
+\textbf{\% Diff (B vs A)} & \textbf{Relative Risk (B vs A)} & \textbf{Odds Ratio (B vs A)} &\\
+-1.3 (-1.9, -0.7) & 0.95 (0.93, 0.97) & 0.93 (0.90, 0.96) &\\
+\hline
+\end{tabular}
+\end{table}
 
 ### Position of first clicked result
 
 ![Position of the first clicked result on the search results page. Most of the users click on the first result they're presented with.](figures/first_position.png)
 
-To compare the these two discrete distributions, we used [bootstrapping](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)) with the [Kullback-Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence) metric, which allowed us to assess the probability of obtaining a K-L statistic equal to or greater than the K-L statistic observed. The observed K-L value was 0.015 (close to 0, signifying similarity) with a 95% Confidence Interval of (0.002, 0.014). The *p*-value was 0.995 so we cannot reject the hypothesis that the two distirbutions are the same.
+To compare the these two discrete distributions, we used [bootstrapping](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)) with the [Kullback-Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence) metric, which allowed us to assess the probability of obtaining a K-L statistic equal to or greater than the K-L statistic observed. The observed K-L value was 0.018 (close to 0, signifying similarity) with a 95% Confidence Interval of (-0.002, 0.016). The *p*-value was 0.987 so we cannot reject the hypothesis that the two distirbutions are the same.
 
 <!-- ### Position of first and second clicked results
 ![](figures/clicked_positions.png) -->
@@ -76,98 +95,167 @@ To compare the these two discrete distributions, we used [bootstrapping](https:/
 
 ![Most of the users click on a search result within the first 25 seconds, with 10s being the most common first clickthrough time.](figures/first_clickthrough.png)
 
-We performed the Kolmogorov-Smirnov Test to check if the two continuous distributions of time to first clickthrough were different between the two groups and found that we **cannot reject** (*p*-value = 0.9656) that the times were drawn from the same distribution -- in other words, that the two distributions are the same.
+We performed the Kolmogorov-Smirnov Test to check if the two continuous distributions of time to first clickthrough were different between the two groups and found that we **cannot reject** (*p*-value = 0.6469, D = 0.011) that the times were drawn from the same distribution -- in other words, that the two distributions are the same.
 
 ### Number of results visited
 
 ![Number of results opened per session. 0 pages visited corresponds to session abandonment rate -- aka the inverse of clickthrough rate.](figures/pages_visited.png)
 
-To compare the groups' number of results visited distributions, we bootstrapped the Kullback-Leibler divergence metric. The observed K-L value was 0.008 (close to 0, signifying similarity) with a 95% Confidence Interval of (0.004, 0.009). The *p*-value was 0.893 so we cannot reject the hypothesis that the two distirbutions are the same.
+To compare the groups' number of results visited distributions, we bootstrapped the Kullback-Leibler divergence metric. The observed K-L value was 0.0096 (close to 0, signifying similarity) with a 95% Confidence Interval of (0.003, 0.010). The *p*-value was 0.894 so we cannot reject the hypothesis that the two distirbutions are the same.
 
 ### Search session duration
 
 ![Session length peaks between 10s and 30s, with most of the sessions wrapping up around the 10 minute mark.](figures/session_duration.png)
 
-Due to the size of the dataset, we could not perform a straight Kolmogorov-Smirnov Test to compare the two distributions (larger sample sizes yield smaller *p*-values, yielding statistically significant difference where there is no practical difference). As before, we used *boostrapping* but instead applied it to the Kolmogorov-Smirnov test statistic. The observed K-S statistic was 0.012 -- with a 95% C.I. (0.005, 0.016) -- and the bootstrapped *p*-value was 0.698, which means we do not have sufficient evidence of the groups' session length distributions being significantly different.
+Due to the size of the dataset, we could not perform a straight Kolmogorov-Smirnov Test to compare the two distributions (larger sample sizes yield smaller *p*-values, yielding statistically significant difference where there is no practical difference). As before, we used *boostrapping* but instead applied it to the Kolmogorov-Smirnov test statistic. The observed K-S statistic was 0.017 -- with a 95% C.I. (0.010, 0.022) -- and the bootstrapped *p*-value was 0.615, which means we do not have sufficient evidence of the groups' session length distributions being significantly different.
+
+### Time spent on pages
+
+Figure 7 and Tables \ref{tbl:survival_first}--\ref{tbl:survival_last} in the Appendix show the \% of each group remaining on the first visited page / randomly chosen visited page / last visited page. The two groups behave very similarly, with the test group staying just little a bit longer on visited pages than the control group.
 
 \newpage
-
-### Time spent on visited pages
-
-**First visited page:**
 
 ![The test group stayed a tiny bit longer on the first result they clicked on than the control group, on average.](figures/surv_first_visited_page.png)
-
-| time| baseline| phraseBoostEq1|difference                                     |
-|----:|--------:|--------------:|:----------------------------------------------|
-|    1|   74.49%|         74.87%|barely higher % of test group remained on page |
-|   15|   59.29%|         60.34%|barely higher % of test group remained on page |
-|   25|   50.61%|         51.45%|barely higher % of test group remained on page |
-|   35|   44.41%|         45.22%|barely higher % of test group remained on page |
-|   45|   39.79%|         40.74%|barely higher % of test group remained on page |
-|   55|   36.23%|         37.05%|barely higher % of test group remained on page |
-|   75|   29.38%|         30.06%|barely higher % of test group remained on page |
-|  105|   25.21%|         25.75%|barely higher % of test group remained on page |
-|  135|   22.42%|         22.98%|barely higher % of test group remained on page |
-|  165|   20.40%|         20.93%|barely higher % of test group remained on page |
-|  195|   18.71%|         19.29%|barely higher % of test group remained on page |
-|  225|   17.48%|         17.90%|barely higher % of test group remained on page |
-|  270|   15.51%|         15.76%|barely higher % of test group remained on page |
-|  330|   13.98%|         14.33%|barely higher % of test group remained on page |
-|  390|   12.73%|         13.18%|barely higher % of test group remained on page |
-
-\newpage
-
-**Randomly selected visited page** (useful when there were several pages opened):
-
-![The test group stayed a tiny bit longer on a clicked result on than the control group, on average.](figures/surv_random_visited_page.png)
-
-| time| baseline| phraseBoostEq1|difference                                     |
-|----:|--------:|--------------:|:----------------------------------------------|
-|    1|   75.33%|         75.70%|barely higher % of test group remained on page |
-|   15|   60.32%|         61.50%|barely higher % of test group remained on page |
-|   25|   51.78%|         52.66%|barely higher % of test group remained on page |
-|   35|   45.68%|         46.65%|barely higher % of test group remained on page |
-|   45|   41.14%|         42.15%|barely higher % of test group remained on page |
-|   55|   37.77%|         38.44%|barely higher % of test group remained on page |
-|   75|   30.82%|         31.44%|barely higher % of test group remained on page |
-|  105|   26.63%|         27.08%|barely higher % of test group remained on page |
-|  135|   23.71%|         24.26%|barely higher % of test group remained on page |
-|  165|   21.70%|         22.17%|barely higher % of test group remained on page |
-|  195|   19.97%|         20.49%|barely higher % of test group remained on page |
-|  225|   18.69%|         19.08%|barely higher % of test group remained on page |
-|  270|   16.60%|         16.84%|barely higher % of test group remained on page |
-|  330|   15.00%|         15.36%|barely higher % of test group remained on page |
-|  390|   13.70%|         14.18%|barely higher % of test group remained on page |
-
-\newpage
-
-**Last visited page:**
-
-![The test group stayed a tiny bit longer on the last result they clicked on than the control group, on average.](figures/surv_last_visited_page.png)
-
-| time| baseline| phraseBoostEq1|difference                                     |
-|----:|--------:|--------------:|:----------------------------------------------|
-|    1|   76.49%|         76.54%|barely higher % of test group remained on page |
-|   15|   62.02%|         62.89%|barely higher % of test group remained on page |
-|   25|   53.59%|         54.24%|barely higher % of test group remained on page |
-|   35|   47.66%|         48.21%|barely higher % of test group remained on page |
-|   45|   43.05%|         43.75%|barely higher % of test group remained on page |
-|   55|   39.65%|         40.13%|barely higher % of test group remained on page |
-|   75|   32.82%|         32.93%|barely higher % of test group remained on page |
-|  105|   28.54%|         28.62%|barely higher % of test group remained on page |
-|  135|   25.53%|         25.70%|barely higher % of test group remained on page |
-|  165|   23.46%|         23.57%|barely higher % of test group remained on page |
-|  195|   21.66%|         21.83%|barely higher % of test group remained on page |
-|  225|   20.37%|         20.47%|barely higher % of test group remained on page |
-|  270|   18.10%|         18.14%|barely higher % of test group remained on page |
-|  330|   16.43%|         16.53%|barely higher % of test group remained on page |
-|  390|   15.06%|         15.30%|barely higher % of test group remained on page |
-
-\newpage
 
 ## Discussion
 
 Across the board, the users who received the new boost configuration behaved the same as the control group. Whether you look at number of searches per session, the clickthrough rate, position of first clicked result, time to first clickthrough, number of results visited (clickthroughs per session), search session duration, and time spent on visited pages, there are tiny, insignificant differences -- both from statistical and practical perspectives.
 
 Putting the close-to-0-differences aside, if we take a very naive look at the differences and focus on their direction, we still cannot determine whether the change is a positive **or** negative (however small) impact for our users. It is unclear how to interpret the differences. For example, the test group had a slightly higher proportion of sessions that only had 1 or 2 SERPs than the control group, which had a slightly higher proportion of multi-SERP sessions. Fewer searches may mean better results, or it may (cynically) mean users figuring out faster that they're not going to find what they're looking for. Certainly that's what a lower clickthrough rate and a slightly shorter average session length imply.
+
+\newpage
+
+\section{Appendix}
+
+\begin{table}[h]
+\sffamily
+\caption{Time spent on first visited page.}
+\centering
+\renewcommand{\arraystretch}{1.75}% for the vertical padding
+\begin{tabular}[t]{r|r|r|l}
+\hline
+\textbf{Time (s)} & \textbf{\% of baseline} & \textbf{\% of phraseBoostEq1} & \textbf{Difference}\\
+\hline\hline
+1 & 81.86\% & 82.34\% & barely higher \% of test group remained on page\\
+\hline
+15 & 68.33\% & 69.85\% & barely higher \% of test group remained on page\\
+\hline
+25 & 59.69\% & 61.44\% & barely higher \% of test group remained on page\\
+\hline
+35 & 53.67\% & 54.90\% & barely higher \% of test group remained on page\\
+\hline
+45 & 48.63\% & 49.90\% & barely higher \% of test group remained on page\\
+\hline
+55 & 44.69\% & 45.49\% & barely higher \% of test group remained on page\\
+\hline
+75 & 36.38\% & 37.17\% & barely higher \% of test group remained on page\\
+\hline
+105 & 31.13\% & 31.77\% & barely higher \% of test group remained on page\\
+\hline
+135 & 27.55\% & 28.21\% & barely higher \% of test group remained on page\\
+\hline
+165 & 24.97\% & 25.63\% & barely higher \% of test group remained on page\\
+\hline
+195 & 22.82\% & 23.63\% & barely higher \% of test group remained on page\\
+\hline
+225 & 21.19\% & 21.70\% & barely higher \% of test group remained on page\\
+\hline
+270 & 18.66\% & 19.02\% & barely higher \% of test group remained on page\\
+\hline
+330 & 16.73\% & 17.20\% & barely higher \% of test group remained on page\\
+\hline
+390 & 15.18\% & 15.87\% & barely higher \% of test group remained on page\\
+\hline
+\end{tabular}
+\label{tbl:survival_first}
+\end{table}
+
+\newpage
+
+\begin{table}[h]
+\sffamily
+\caption{Time spent on randomly selected visited page (useful when there were several pages opened).}
+\centering
+\renewcommand{\arraystretch}{1.75}% for the vertical padding
+\begin{tabular}[t]{r|r|r|l}
+\hline
+\textbf{Time (s)} & \textbf{\% of baseline} & \textbf{\% of phraseBoostEq1} & \textbf{Difference}\\
+\hline\hline
+1 & 82.16\% & 82.44\% & barely higher \% of test group remained on page\\
+\hline
+15 & 68.85\% & 70.06\% & barely higher \% of test group remained on page\\
+\hline
+25 & 60.34\% & 61.62\% & barely higher \% of test group remained on page\\
+\hline
+35 & 54.14\% & 55.09\% & barely higher \% of test group remained on page\\
+\hline
+45 & 49.27\% & 50.11\% & barely higher \% of test group remained on page\\
+\hline
+55 & 45.40\% & 45.92\% & barely higher \% of test group remained on page\\
+\hline
+75 & 37.22\% & 37.62\% & barely higher \% of test group remained on page\\
+\hline
+105 & 32.08\% & 32.27\% & barely higher \% of test group remained on page\\
+\hline
+135 & 28.45\% & 28.74\% & barely higher \% of test group remained on page\\
+\hline
+165 & 25.90\% & 26.29\% & barely higher \% of test group remained on page\\
+\hline
+195 & 23.76\% & 24.21\% & barely higher \% of test group remained on page\\
+\hline
+225 & 22.14\% & 22.45\% & barely higher \% of test group remained on page\\
+\hline
+270 & 19.53\% & 19.80\% & barely higher \% of test group remained on page\\
+\hline
+330 & 17.62\% & 17.96\% & barely higher \% of test group remained on page\\
+\hline
+390 & 16.06\% & 16.63\% & barely higher \% of test group remained on page\\
+\hline
+\end{tabular}
+\label{tbl:survival_random}
+\end{table}
+
+\newpage
+
+\begin{table}[h]
+\sffamily
+\caption{Time spent on last visited page.}
+\centering
+\renewcommand{\arraystretch}{1.75}% for the vertical padding
+\begin{tabular}[t]{r|r|r|l}
+\hline
+\textbf{Time (s)} & \textbf{\% of baseline} & \textbf{\% of phraseBoostEq1} & \textbf{Difference}\\
+\hline\hline
+1 & 82.88\% & 82.94\% & barely higher \% of test group remained on page\\
+\hline
+15 & 69.75\% & 70.69\% & barely higher \% of test group remained on page\\
+\hline
+25 & 61.17\% & 62.30\% & barely higher \% of test group remained on page\\
+\hline
+35 & 55.23\% & 55.97\% & barely higher \% of test group remained on page\\
+\hline
+45 & 50.31\% & 50.97\% & barely higher \% of test group remained on page\\
+\hline
+55 & 46.51\% & 46.75\% & barely higher \% of test group remained on page\\
+\hline
+75 & 38.42\% & 38.42\% & barely higher \% of test group remained on page\\
+\hline
+105 & 33.29\% & 33.31\% & barely higher \% of test group remained on page\\
+\hline
+135 & 29.62\% & 29.67\% & barely higher \% of test group remained on page\\
+\hline
+165 & 27.12\% & 27.21\% & barely higher \% of test group remained on page\\
+\hline
+195 & 24.93\% & 25.20\% & barely higher \% of test group remained on page\\
+\hline
+225 & 23.25\% & 23.45\% & barely higher \% of test group remained on page\\
+\hline
+270 & 20.57\% & 20.72\% & barely higher \% of test group remained on page\\
+\hline
+330 & 18.60\% & 18.88\% & barely higher \% of test group remained on page\\
+\hline
+390 & 16.98\% & 17.53\% & barely higher \% of test group remained on page\\
+\hline
+\end{tabular}
+\label{tbl:survival_last}
+\end{table}

@@ -5,8 +5,8 @@ library(cowplot)
 library(purrr)
 library(GGally) # install.packages("GGally")
 
-events <- dplyr::tbl_df(as.data.frame(readr::read_rds("data/phrase_boost_test_EL.rds")))
-# events <- dplyr::tbl_df(as.data.frame(readr::read_rds("data/phrase_boost_test_EL_v2.rds")))
+# events <- dplyr::tbl_df(as.data.frame(readr::read_rds("data/phrase_boost_test_EL.rds")))
+events <- dplyr::tbl_df(as.data.frame(readr::read_rds("data/phrase_boost_test_EL_v2.rds")))
 events %<>% keep_where(session_id != "")
 events$action_id <- NULL
 events %<>% keep_where(date > "2016-03-14")
@@ -31,9 +31,9 @@ p <- events %>%
   ggplot(aes(x = date, y = sessions, fill = group)) +
   geom_bar(stat = "identity", position = "dodge") +
   scale_x_datetime(date_breaks = "1 day", date_labels = "%a (%d %b)") +
-  labs(title = "Sampling of test groups over time") +
-  ggthemes::theme_tufte(base_family = "Gill Sans") +
-  theme(legend.position = "bottom") +
+  labs(title = "Sampling of test groups over time", y = "Sessions") +
+  ggthemes::theme_tufte(base_family = "Gill Sans", base_size = 12) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
 ggsave("sampling.png", plot = p, path = "figures", width = 8, height = 4)
 
@@ -59,12 +59,13 @@ p <- ggplot(data = ctr_daily_by_group, aes(x = date, y = ctr, color = group)) +
   scale_y_continuous("Clickthrough rate", labels = scales::percent_format()) +
   geom_text(aes(label = sprintf("%.1f%%", 100*ctr)), color = "black", fontface = "bold",
             vjust = -1) +
-  geom_text(data = ctr_by_group, aes(x = lubridate::ymd("2016-03-15"),
-                                     y = ctr, color = group,
-                                     label = sprintf("%.1f%% overall", 100*ctr)),
-            vjust = -1, hjust = -0.05) +
+  # geom_text(data = ctr_by_group, aes(x = lubridate::ymd_hms("2016-03-15"),
+  #                                    y = ctr, color = group,
+  #                                    label = sprintf("%.1f%% overall", 100*ctr)),
+  #           vjust = -1, hjust = -0.05) +
   labs(title = "Proportions of sessions where user clicked on a result") +
-  ggthemes::theme_tufte(base_family = "Gill Sans") +
+  ggthemes::theme_tufte(base_family = "Gill Sans", base_size = 12) +
+  scale_color_brewer(type = "qual", palette = "Set1") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
 ggsave("daily_ctr.png", p, path = "figures", width = 10, height = 6)
 
@@ -88,9 +89,10 @@ p <- ctr_counts_by_group %>%
   geom_text(aes(label = sprintf("%.1f%%", 100*prop)), position = position_dodge(width = 1), vjust = -1) +
   labs(title = "How number of results opened per session varies by group",
        x = "Number of pages visited per session") +
-  ggthemes::theme_tufte(base_family = "Gill Sans") +
+  ggthemes::theme_tufte(base_family = "Gill Sans", base_size = 14) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
-ggsave("pages_visited.png", p, path = "figures", width = 12, height = 6)
+ggsave("pages_visited.png", p, path = "figures", width = 12, height = 7)
 
 ## Time to first clickthrough
 time_to_clickthrough <- events %>%
@@ -111,14 +113,16 @@ p1 <- time_to_clickthrough %>%
   geom_violin(trim = FALSE, adjust = 2, draw_quantiles = c(0.25, 0.5, 0.75)) +
   scale_y_continuous(labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) }) +
   labs(y = "Time to first clickthrough", title = "Time to first clickthrough") +
-  ggthemes::theme_tufte(base_family = "Gill Sans") +
+  ggthemes::theme_tufte(base_family = "Gill Sans", base_size = 14) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
 p2 <- time_to_clickthrough %>%
   ggplot(aes(y = `Time to first clickthrough`, x = Group, fill = Group)) +
   geom_violin(trim = FALSE, adjust = 2, draw_quantiles = c(0.25, 0.5, 0.75)) +
   scale_y_log10(labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) }) +
   labs(y = "Time to first clickthrough (log10-transformed)", title = "Log10-transformed time to clickthrough") +
-  ggthemes::theme_tufte(base_family = "Gill Sans") +
+  ggthemes::theme_tufte(base_family = "Gill Sans", base_size = 14) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
 (p <- plot_grid(p1, p2, ncol = 2))
 ggsave("first_clickthrough.png", p, path = "figures", width = 12, height = 6)
@@ -145,35 +149,15 @@ p <- searches_by_group %>%
             position = position_dodge(width = 1), vjust = -1, fontface = "bold") +
   labs(title = "Number of search engine results pages (SERPs) opened per session",
        x = "Number of SERPs opened (searches performed)") +
-  ggthemes::theme_tufte(base_family = "Gill Sans") +
+  ggthemes::theme_tufte(base_family = "Gill Sans", base_size = 14) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
+  scale_color_brewer(type = "qual", palette = "Set1") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
-ggsave("searches.png", p, path = "figures", width = 12, height = 6)
+ggsave("searches.png", p, path = "figures", width = 12, height = 7)
 rm(p1, p2, p)
 
 ## Position of first & second clicked results
-first_click <- events %>%
-  keep_where(!is.na(result_position)) %>%
-  group_by(session_id) %>%
-  arrange(ts) %>%
-  summarize(group = head(test_group, 1),
-            position = head(result_position, 1)) %>%
-  group_by(group, position) %>%
-  summarize(sessions = n())
-p <- first_click %>%
-  mutate(position = ifelse(position < 11, position, "11+")) %>%
-  group_by(Group = group, position) %>%
-  summarize(sessions = sum(sessions)) %>%
-  mutate(prop = sessions/sum(sessions)) %>%
-  ggplot(aes(x = factor(position, levels = c(1:10, "11+")), y = prop, fill = Group)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_y_continuous("Proportion of sessions within group", labels = scales::percent_format()) +
-  geom_text(aes(label = sprintf("%.1f", 100*prop), color = Group),
-            position = position_dodge(width = 1), vjust = -1, fontface = "bold") +
-  labs(title = "First clicked result's position on search engine results page",
-       x = "Position of the first clicked result on SERP") +
-  ggthemes::theme_tufte(base_family = "Gill Sans") +
-  theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
-ggsave("first_position.png", p, path = "figures", width = 12, height = 6)
+ 
 
 clicked_position <- events %>%
   keep_where(!is.na(result_position)) %>%
@@ -220,7 +204,8 @@ p <- session_lengths %>%
                 breaks = c(1, 10, 30, 60, 60*10, 60*60, 60*60*24),
                 labels = function(secs) { return(tolower(lubridate::seconds_to_period(round(secs)))) }) +
   labs(title = "Distribution of log10-scaled session lengths", y = "Density") +
-  ggthemes::theme_tufte(base_family = "Gill Sans") +
+  ggthemes::theme_tufte(base_family = "Gill Sans", base_size = 14) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
   theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
 ggsave("session_duration.png", p, path = "figures", width = 10, height = 6)
 
@@ -291,9 +276,10 @@ surv_1 <- (function() {
   gg <- GGally::ggsurv(fit) + scale_y_continuous(labels = scales::percent_format()) +
     labs(x = "Time", title = "Time spent on first visited page in each search session",
          y = "Survival (% of users remaining after some time has passed)") +
-    ggthemes::theme_tufte(base_family = "Gill Sans") +
-    theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1)) +
-    scale_x_continuous(breaks = seq(0, 420, 30), labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) })
+    scale_x_continuous(breaks = seq(0, 420, 30), labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) }) +
+    ggthemes::theme_tufte(base_family = "Gill Sans", base_size = 14) +
+    scale_color_brewer(type = "qual", palette = "Set1") +
+    theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
   df <- summarize_survival_differences(fit)
   return(list(grob = gg, table = df))
 })()
@@ -307,9 +293,10 @@ surv_2 <- (function() {
   gg <- GGally::ggsurv(fit) + scale_y_continuous(labels = scales::percent_format()) +
     labs(x = "Time", title = "Time spent on one of the (randomly chosen) visited pages in each search session",
          y = "Survival (% of users remaining after some time has passed)") +
-    ggthemes::theme_tufte(base_family = "Gill Sans") +
-    theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1)) +
-    scale_x_continuous(breaks = seq(0, 420, 30), labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) })
+    scale_x_continuous(breaks = seq(0, 420, 30), labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) }) +
+    ggthemes::theme_tufte(base_family = "Gill Sans", base_size = 14) +
+    scale_color_brewer(type = "qual", palette = "Set1") +
+    theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
   df <- summarize_survival_differences(fit)
   return(list(grob = gg, table = df))
 })()
@@ -323,14 +310,15 @@ surv_3 <- (function() {
   gg <- GGally::ggsurv(fit) + scale_y_continuous(labels = scales::percent_format()) +
     labs(x = "Time", title = "Time spent on last visited page in each search session",
          y = "Survival (% of users remaining after some time has passed)") +
-    ggthemes::theme_tufte(base_family = "Gill Sans") +
-    theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1)) +
-    scale_x_continuous(breaks = seq(0, 420, 30), labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) })
+    scale_x_continuous(breaks = seq(0, 420, 30), labels = function(secs) { return(tolower(lubridate::seconds_to_period(secs))) }) +
+    ggthemes::theme_tufte(base_family = "Gill Sans", base_size = 14) +
+    scale_color_brewer(type = "qual", palette = "Set1") +
+    theme(legend.position = "bottom", panel.grid = element_line(color = "black", size = 0.1))
   df <- summarize_survival_differences(fit)
   return(list(grob = gg, table = df))
 })()
 
-surv_2$table %>% knitr::kable(align = c("r", "r", "r", "l"))
+surv_2$table %>% knitr::kable(align = c("r", "r", "r", "l"), format = "latex", caption = "...caption...")
 ggsave("surv_first_visited_page.png", surv_1$grob, path = "figures", width = 10, height = 6)
 ggsave("surv_random_visited_page.png", surv_2$grob, path = "figures", width = 10, height = 6)
 ggsave("surv_last_visited_page.png", surv_3$grob, path = "figures", width = 10, height = 6)
