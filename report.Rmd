@@ -27,7 +27,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 \begin{abstract}
 From 15 March 2016 to 22 March 2016 the Discovery/Search team ran an A/B test to assess how changing the phrase rescore boost from its current value of 10 to a proposed value of 1 would affect our users' behavior. Phrase rescore reorders the returned results, ranking results that have the same phrase higher. It appeared to be overboosted so we hypothesized that it may yield sub-optimal results.
 
-It is important to note right up front that the differences in metrics/distributions between the test group (users with phrase rescore boost of 1) and the control (users with phrase rescore boost of 10) were close to 0 and were not statistically significant, even after making sure we only analyzed the eligible (affected) sessions -- queries with two or more words.
+It is important to note right up front that the differences in metrics/distributions between the test group (users with phrase rescore boost of 1) and the control (users with phrase rescore boost of 10) were close to 0 and were not statistically significant, even after making sure we only analyzed the eligible (affected) sessions -- queries with two or more words. Even in the lab it was a very small effect (PaulScore of 0.59 to 0.60).
 
 \begin{itemize}
   \item The test group has a slightly higher proportion of sessions with only 1 or 2 search results pages than the control group, which has a slightly higher proportion of multi-search sessions.
@@ -47,7 +47,7 @@ Perhaps in this particular case it may be worth making the config change decisio
 
 [Rescoring](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-rescore.html) can help to improve precision by reordering results using a secondary (usually more costly) algorithm, instead of applying the costly algorithm to all items in the index. When there are more than two words (generally a phrase) in the query _**phrase rescore** function_ tries to rank higher documents that have the same phrase (see [MediaWiki](https://www.mediawiki.org/wiki/Extension:CirrusSearch/Scoring#Rescoring)).
 
-The phrase rescore appeared to be overboosted to us at its current value of 10, and we hypothesized that maybe it caused the first search engine results page (SERP) to be flooded by sub-optimal results. The phrase rescore is applied to the **all field** which means if a category perfectly matches all its article have good chance to be part of the first result page. In a preliminary analysis ([T128071](https://phabricator.wikimedia.org/T128071)) using [Relevance Forge](http://git.wikimedia.org/blob/wikimedia%2Fdiscovery%2FrelevanceForge.git/master/README.md) (*RelForge* is also on [GitHub](https://github.com/wikimedia/wikimedia-discovery-relevanceForge)), it appeared that changing the boost to a value of 1 resulted in 20% of the queries having different pages in the top 20.
+The phrase rescore appeared to be overboosted to us at its current value of 10, and we hypothesized that maybe it caused the first search engine results page (SERP) to be flooded by sub-optimal results. The phrase rescore is applied to the **all field** which means if a category perfectly matches all its article have good chance to be part of the first result page. In a preliminary analysis ([T128071](https://phabricator.wikimedia.org/T128071) & [these notes](https://docs.google.com/document/d/1upbJo5fB0i2N8C7k_9ySS4iSnjLniRL1zgNon9BuQ7g/edit?usp=sharing)) using [Relevance Forge](http://git.wikimedia.org/blob/wikimedia%2Fdiscovery%2FrelevanceForge.git/master/README.md) (*RelForge* is also on [GitHub](https://github.com/wikimedia/wikimedia-discovery-relevanceForge)), it appeared that changing the boost to a value of 1 resulted in 20% of the queries having different pages in the top 20, which is not indicative of a positive or a negative change, just *a* change.
 
 So we decided to pursue this as an A/B test ([T129593](https://phabricator.wikimedia.org/T129593)) to see whether the change would have a positive impact on search results with regards to various user behavior metrics. Specifically, we decided to judge the impact of the configuration change by assessing: number of searches per session, clickthrough rate, position of first clicked result, time to first clickthrough, number of results visited (pages opened), session duration, and time spent on visited page(s).
 
@@ -59,7 +59,7 @@ We ran the test from 15 March 2016 to 22 March 2016 on 0.5% of the users searchi
 
 ![Number of searches made per session. The test group has a slightly higher proportion of sessions with only 1 or 2 search results pages than the control group, which has a slightly higher proportion of multi-search sessions.](figures/searches.png)
 
-To compare the these two discrete distributions, we used [bootstrapping](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)) with the [Kullback-Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence) metric, which allowed us to assess the probability of obtaining a K-L statistic equal to or greater than the K-L statistic observed. The observed K-L value was 0.0247 (close to 0, signifying similarity) with a 95% Confidence Interval of (0.015, 0.025). The *p*-value was 0.966 so we cannot reject the hypothesis that the two distirbutions are the same.
+To compare the these two discrete distributions, we used [bootstrapping](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)) with the [Kullback-Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence) metric, which allowed us to assess the probability of obtaining a K-L statistic equal to or greater than the K-L statistic observed. The observed K-L value was 0.0247 (close to 0, signifying similarity) with a 95% Confidence Interval of (0.015, 0.025). The *p*-value was 0.966 so we cannot reject the hypothesis that the two distributions are the same.
 
 ### Clickthrough rate (CTR)
 
@@ -86,7 +86,7 @@ $n_\text{B}$ & $n_\text{A}$ & $\pi_\text{B}$ \textbf{(\%)} & $\pi_\text{A}$ \tex
 
 ![Position of the first clicked result on the search results page. Most of the users click on the first result they're presented with.](figures/first_position.png)
 
-To compare the these two discrete distributions, we used [bootstrapping](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)) with the [Kullback-Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence) metric, which allowed us to assess the probability of obtaining a K-L statistic equal to or greater than the K-L statistic observed. The observed K-L value was 0.018 (close to 0, signifying similarity) with a 95% Confidence Interval of (-0.002, 0.016). The *p*-value was 0.987 so we cannot reject the hypothesis that the two distirbutions are the same.
+To compare the these two discrete distributions, we used [bootstrapping](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)) with the [Kullback-Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence) metric, which allowed us to assess the probability of obtaining a K-L statistic equal to or greater than the K-L statistic observed. The observed K-L value was 0.018 (close to 0, signifying similarity) with a 95% Confidence Interval of (-0.002, 0.016). The *p*-value was 0.987 so we cannot reject the hypothesis that the two distributions are the same.
 
 <!-- ### Position of first and second clicked results
 ![](figures/clicked_positions.png) -->
@@ -101,13 +101,13 @@ We performed the Kolmogorov-Smirnov Test to check if the two continuous distribu
 
 ![Number of results opened per session. 0 pages visited corresponds to session abandonment rate -- aka the inverse of clickthrough rate.](figures/pages_visited.png)
 
-To compare the groups' number of results visited distributions, we bootstrapped the Kullback-Leibler divergence metric. The observed K-L value was 0.0096 (close to 0, signifying similarity) with a 95% Confidence Interval of (0.003, 0.010). The *p*-value was 0.894 so we cannot reject the hypothesis that the two distirbutions are the same.
+To compare the groups' number of results visited distributions, we bootstrapped the Kullback-Leibler divergence metric. The observed K-L value was 0.0096 (close to 0, signifying similarity) with a 95% Confidence Interval of (0.003, 0.010). The *p*-value was 0.894 so we cannot reject the hypothesis that the two distributions are the same.
 
 ### Search session duration
 
 ![Session length peaks between 10s and 30s, with most of the sessions wrapping up around the 10 minute mark.](figures/session_duration.png)
 
-Due to the size of the dataset, we could not perform a straight Kolmogorov-Smirnov Test to compare the two distributions (larger sample sizes yield smaller *p*-values, yielding statistically significant difference where there is no practical difference). As before, we used *boostrapping* but instead applied it to the Kolmogorov-Smirnov test statistic. The observed K-S statistic was 0.017 -- with a 95% C.I. (0.010, 0.022) -- and the bootstrapped *p*-value was 0.615, which means we do not have sufficient evidence of the groups' session length distributions being significantly different.
+Due to the size of the dataset, we could not perform a straight Kolmogorov-Smirnov Test to compare the two distributions (larger sample sizes yield smaller *p*-values, yielding statistically significant difference where there is no practical difference). As before, we used *bootstrapping* but instead applied it to the Kolmogorov-Smirnov test statistic. The observed K-S statistic was 0.017 -- with a 95% C.I. (0.010, 0.022) -- and the bootstrapped *p*-value was 0.615, which means we do not have sufficient evidence of the groups' session length distributions being significantly different.
 
 ### Time spent on pages
 
